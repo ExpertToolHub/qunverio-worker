@@ -102,11 +102,12 @@ export default {
           + 'Begin now:';
       }
 
-      // FREE TIER MODELS ONLY
+      // FREE TIER MODELS ONLY (from your API)
       const models = [
         'gemini-flash-latest',
         'gemini-2.5-flash',
-        'gemini-2.5-flash-lite'
+        'gemini-2.5-flash-lite',
+        'gemini-flash-lite-latest'
       ];
 
       let lastError = '';
