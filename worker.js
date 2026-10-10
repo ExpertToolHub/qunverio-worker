@@ -73,7 +73,7 @@ export default {
           + '[DIAGRAM: solar_panel]\n\n'
           + 'RULES:\n'
           + '1. Output ONLY notes. NOTHING else.\n'
-          + '2. NO thinking, NO verification.\n'
+          + '2. NO thinking, NO verification, NO meta-commentary.\n'
           + '3. Use ## for sections, ### for sub-sections\n'
           + '4. Use "- " for bullets\n'
           + '5. Definitions: "Definition: ..."\n'
@@ -102,11 +102,12 @@ export default {
           + 'Begin now:';
       }
 
+      // FREE TIER MODELS ONLY
       const models = [
-  'gemini-flash-latest',
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite'
-];
+        'gemini-flash-latest',
+        'gemini-2.5-flash',
+        'gemini-2.5-flash-lite'
+      ];
 
       let lastError = '';
 
