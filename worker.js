@@ -43,10 +43,12 @@ export default {
         });
       }
 
+      // LANGUAGE INSTRUCTIONS — UPDATED
       const languageInstructions = {
-        english: 'Respond ONLY in English.',
-        hindi: 'Respond ONLY in Hindi (Devanagari script).',
-        hinglish: 'Respond in Hinglish (Hindi words in English letters, mixed with English).'
+        english: 'Respond ONLY in English. Use simple, clear English.',
+        hindi: 'Respond ONLY in pure Hindi using Devanagari script (देवनागरी). Every word must be in Hindi. Do NOT use English words. Do NOT use Roman letters. Example: "सौर ऊर्जा एक नवीकरणीय ऊर्जा स्रोत है। सूर्य से प्राप्त ऊर्जा को सौर ऊर्जा कहते हैं।"',
+        'hindi-english': 'Respond in Hindi + English mix. Use Hindi (Devanagari script) for explanations and English for technical terms. Example: "सौर ऊर्जा (Solar Energy) एक renewable source है। यह energy का सबसे बड़ा source है।" Keep it natural, easy to understand, and student-friendly.',
+        hinglish: 'Respond in Hinglish — Hindi words written in English (Roman) letters, mixed with English. Example: "Solar energy ek renewable source hai. Yeh energy ka sabse bada source hai." Do NOT use Devanagari script.'
       };
 
       const depthInstructions = {
@@ -82,7 +84,8 @@ export default {
           + '6. Formulas: $$formula$$ on own line\n'
           + '7. Diagrams: [DIAGRAM: name] on own line\n'
           + '8. NO bold, NO italics\n'
-          + '9. Start directly with # heading.\n\n'
+          + '9. Start directly with # heading.\n'
+          + '10. STRICTLY follow the LANGUAGE instruction above.\n\n'
           + 'Begin now:';
       } else {
         const prevTail = previousContent.slice(-3000);
@@ -100,13 +103,14 @@ export default {
           + '3. Continue naturally\n'
           + '4. If ALL covered, write ONLY: "ALL_TOPICS_COVERED"\n'
           + '5. NO thinking, NO verification\n'
-          + '6. NO bold, NO italics\n\n'
+          + '6. NO bold, NO italics\n'
+          + '7. STRICTLY follow the LANGUAGE instruction above.\n\n'
           + 'Begin now:';
       }
 
       let lastError = '';
 
-      // PRIORITY 1: GROQ (14,400/day free, fast)
+      // PRIORITY 1: GROQ
       if (groqKey) {
         const groqModels = [
           'llama-3.3-70b-versatile',
@@ -127,7 +131,7 @@ export default {
               body: JSON.stringify({
                 model: model,
                 messages: [
-                  { role: 'system', content: 'You are an expert teacher. Output ONLY study notes. No thinking, no meta-commentary.' },
+                  { role: 'system', content: 'You are an expert teacher. Output ONLY study notes. No thinking, no meta-commentary. STRICTLY follow language instructions.' },
                   { role: 'user', content: prompt }
                 ],
                 temperature: 0.7,
@@ -173,7 +177,7 @@ export default {
         }
       }
 
-      // PRIORITY 2: GEMINI FALLBACK (1,500/day free)
+      // PRIORITY 2: GEMINI FALLBACK
       if (geminiKey) {
         const geminiModels = [
           'gemini-flash-latest',
