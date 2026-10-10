@@ -33,9 +33,11 @@ export default {
         });
       }
 
-      const apiKey = env.GEMINI_KEY_2 || env.GEMINI_API_KEY;
-      if (!apiKey) {
-        return new Response(JSON.stringify({ success: false, error: 'API key not configured' }), {
+      const groqKey = env.GROQ_API_KEY;
+      const geminiKey = env.GEMINI_KEY_2 || env.GEMINI_API_KEY;
+
+      if (!groqKey && !geminiKey) {
+        return new Response(JSON.stringify({ success: false, error: 'No API key configured' }), {
           status: 500,
           headers: Object.assign({}, corsHeaders, { 'Content-Type': 'application/json' })
         });
@@ -102,72 +104,137 @@ export default {
           + 'Begin now:';
       }
 
-      // FREE TIER MODELS ONLY (from your API)
-      const models = [
-        'gemini-flash-latest',
-        'gemini-2.5-flash',
-        'gemini-2.5-flash-lite',
-        'gemini-flash-lite-latest'
-      ];
-
       let lastError = '';
 
-      for (let i = 0; i < models.length; i++) {
-        const model = models[i];
-        try {
-          const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + apiKey;
+      // PRIORITY 1: GROQ (14,400/day free, fast)
+      if (groqKey) {
+        const groqModels = [
+          'llama-3.3-70b-versatile',
+          'llama-3.1-70b-versatile',
+          'llama-3.1-8b-instant',
+          'mixtral-8x7b-32768'
+        ];
 
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: {
+        for (let i = 0; i < groqModels.length; i++) {
+          const model = groqModels[i];
+          try {
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + groqKey
+              },
+              body: JSON.stringify({
+                model: model,
+                messages: [
+                  { role: 'system', content: 'You are an expert teacher. Output ONLY study notes. No thinking, no meta-commentary.' },
+                  { role: 'user', content: prompt }
+                ],
                 temperature: 0.7,
-                maxOutputTokens: 3000,
-                topP: 0.95
-              }
-            })
-          });
+                max_tokens: 4000
+              })
+            });
 
-          const data = await response.json();
+            const data = await response.json();
 
-          if (!response.ok) {
-            if (data && data.error && data.error.message) {
-              lastError = data.error.message;
-            } else {
-              lastError = 'HTTP ' + response.status;
+            if (!response.ok) {
+              lastError = (data && data.error && data.error.message) || ('Groq HTTP ' + response.status);
+              continue;
             }
+
+            let text = '';
+            if (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
+              text = data.choices[0].message.content;
+            }
+
+            if (!text) {
+              lastError = 'Groq empty response';
+              continue;
+            }
+
+            const trimmedText = text.trim();
+            const allCovered = /^ALL_TOPICS_COVERED\s*$/i.test(trimmedText);
+
+            return new Response(JSON.stringify({
+              success: true,
+              partNumber: partNumber,
+              model: 'groq:' + model,
+              text: allCovered ? '' : trimmedText,
+              allCovered: allCovered
+            }), {
+              status: 200,
+              headers: Object.assign({}, corsHeaders, { 'Content-Type': 'application/json' })
+            });
+
+          } catch (err) {
+            lastError = 'Groq: ' + err.message;
             continue;
           }
+        }
+      }
 
-          let text = '';
-          if (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text) {
-            text = data.candidates[0].content.parts[0].text;
-          }
+      // PRIORITY 2: GEMINI FALLBACK (1,500/day free)
+      if (geminiKey) {
+        const geminiModels = [
+          'gemini-flash-latest',
+          'gemini-2.5-flash',
+          'gemini-2.5-flash-lite',
+          'gemini-flash-lite-latest'
+        ];
 
-          if (!text) {
-            lastError = 'Empty response';
+        for (let i = 0; i < geminiModels.length; i++) {
+          const model = geminiModels[i];
+          try {
+            const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + geminiKey;
+
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                  temperature: 0.7,
+                  maxOutputTokens: 3000,
+                  topP: 0.95
+                }
+              })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+              lastError = (data && data.error && data.error.message) || ('Gemini HTTP ' + response.status);
+              continue;
+            }
+
+            let text = '';
+            if (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text) {
+              text = data.candidates[0].content.parts[0].text;
+            }
+
+            if (!text) {
+              lastError = 'Gemini empty response';
+              continue;
+            }
+
+            const trimmedText = text.trim();
+            const allCovered = /^ALL_TOPICS_COVERED\s*$/i.test(trimmedText);
+
+            return new Response(JSON.stringify({
+              success: true,
+              partNumber: partNumber,
+              model: 'gemini:' + model,
+              text: allCovered ? '' : trimmedText,
+              allCovered: allCovered
+            }), {
+              status: 200,
+              headers: Object.assign({}, corsHeaders, { 'Content-Type': 'application/json' })
+            });
+
+          } catch (err) {
+            lastError = 'Gemini: ' + err.message;
             continue;
           }
-
-          const trimmedText = text.trim();
-          const allCovered = /^ALL_TOPICS_COVERED\s*$/i.test(trimmedText);
-
-          return new Response(JSON.stringify({
-            success: true,
-            partNumber: partNumber,
-            model: model,
-            text: allCovered ? '' : trimmedText,
-            allCovered: allCovered
-          }), {
-            status: 200,
-            headers: Object.assign({}, corsHeaders, { 'Content-Type': 'application/json' })
-          });
-
-        } catch (err) {
-          lastError = err.message;
-          continue;
         }
       }
 
